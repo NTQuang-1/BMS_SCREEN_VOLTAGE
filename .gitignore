@@ -1,0 +1,6 @@
+#  ignore directories
+obj
+.codex
+
+# ignore files
+*.launch
