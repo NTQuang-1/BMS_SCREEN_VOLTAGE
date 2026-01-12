@@ -20,6 +20,8 @@ lcd_status_t                lcd_status        = LCD_OFF;
 
 static volatile led_color_t led_color         = LED_COLOR_WHITE;
 static volatile uint8_t     led_effect_on     = 0;
+static volatile led_color_t led_color_hold_start = LED_COLOR_WHITE;
+static volatile uint8_t     hold1s_color_changed = 0;
 
 uint8_t                     remain_battery;
 int                         bat_volt;
@@ -35,7 +37,10 @@ static volatile uint32_t press_duration_ms = 0;
 static volatile uint8_t  hold3s_done       = 0;
 static volatile uint8_t  hold5s_done       = 0;
 static volatile uint8_t  hold10s_done      = 0;
+static volatile uint8_t  hold1s_done       = 0;
+static volatile uint8_t  hold2s_done       = 0;
 static volatile uint8_t  hold_consumed     = 0;
+static volatile uint8_t  setting_wait_release = 0;
 static volatile uint8_t  tap_armed         = 0;
 static volatile uint32_t tap_time_ms       = 0;
 
@@ -57,6 +62,7 @@ void               EnterSleep(void);
 static inline void TIM2_SetDutyColor(uint16_t dutyCycle, led_color_t color);
 static inline void TIM2_AllOff(void);
 static void        LCD_EnsureOn(void);
+static void        UpdateMeasurements(void);
 static void        LCD_ShowBatteryInfo(void);
 static void        LCD_ShowSettingOption(void);
 static void        LED_ApplyBrightness(void);
@@ -129,14 +135,7 @@ int main(void)
 
       if (setting_mode)
       {
-        if (dur >= 2000)
-        {
-          auto_sleep_timeout_ms = setting_options_ms[setting_option_idx];
-          setting_mode = 0;
-          sys_stick = 0;
-          LCD_ShowBatteryInfo();
-        }
-        else if (dur >= 30 && dur < 1000)
+        if (dur >= 30 && dur < 1000)
         {
           setting_option_idx = (setting_option_idx + 1) % (sizeof(setting_options_ms) / sizeof(setting_options_ms[0]));
           LCD_ShowSettingOption();
@@ -144,22 +143,7 @@ int main(void)
       }
       else
       {
-        if (dur >= 1000)
-        {
-          if (led_status != LED_OFF)
-          {
-            led_color = (led_color_t)((led_color + 1) % 3);
-            if (led_status == LED_ON)
-            {
-              TIM2_SetDutyColor(led_dutyCycleNow, led_color);
-            }
-            else if (led_status == LED_EFFECT && led_effect_on)
-            {
-              TIM2_SetDutyColor(led_dutyCycleNow, led_color);
-            }
-          }
-        }
-        else if (dur >= 30)
+        if (dur >= 30)
         {
           if (led_status == LED_ON || led_status == LED_EFFECT)
           {
@@ -243,10 +227,14 @@ void EXTI7_0_IRQHandler(void)
   {
     button_pressed = 1;
     press_ms = 0;
+    hold1s_done = 0;
+    hold2s_done = 0;
     hold3s_done = 0;
     hold5s_done = 0;
     hold10s_done = 0;
     hold_consumed = 0;
+    hold1s_color_changed = 0;
+    led_color_hold_start = led_color;
   }
   else // Falling
   {
@@ -261,6 +249,13 @@ void EXTI7_0_IRQHandler(void)
     {
       press_ms = 0;
     }
+    if (setting_mode && setting_wait_release)
+    {
+      setting_wait_release = 0;
+      hold2s_done = 0;
+      hold_consumed = 0;
+      press_ms = 0;
+    }
   }
 }
 
@@ -273,6 +268,25 @@ void TIM1_UP_IRQHandler(void)
     sys_stick = 0;
     if (!setting_mode)
     {
+      if (press_ms >= 1000 && !hold1s_done)
+      {
+        hold1s_done = 1;
+        hold_consumed = 1;
+        tap_armed = 0;
+        if (led_status == LED_ON)
+        {
+          led_color = (led_color_t)((led_color + 1) % 3);
+          hold1s_color_changed = 1;
+          if (led_status == LED_ON)
+          {
+            TIM2_SetDutyColor(led_dutyCycleNow, led_color);
+          }
+          else if (led_status == LED_EFFECT && led_effect_on)
+          {
+            TIM2_SetDutyColor(led_dutyCycleNow, led_color);
+          }
+        }
+      }
       if (press_ms >= 10000 && !hold10s_done)
       {
         hold10s_done = 1;
@@ -282,6 +296,7 @@ void TIM1_UP_IRQHandler(void)
         led_effect_on = 0;
         TIM2_AllOff();
         setting_mode = 1;
+        setting_wait_release = 1;
         if (auto_sleep_timeout_ms == setting_options_ms[1])
           setting_option_idx = 1;
         else if (auto_sleep_timeout_ms == setting_options_ms[2])
@@ -295,10 +310,11 @@ void TIM1_UP_IRQHandler(void)
         hold5s_done = 1;
         hold_consumed = 1;
         tap_armed = 0;
+        if (hold1s_color_changed)
+          led_color = led_color_hold_start;
         if (led_status == LED_OFF)
         {
           led_level = 1;
-          led_color = LED_COLOR_WHITE;
         }
         led_status = LED_EFFECT;
         led_effect_on = 0;
@@ -310,16 +326,33 @@ void TIM1_UP_IRQHandler(void)
         hold3s_done = 1;
         hold_consumed = 1;
         tap_armed = 0;
-        led_status = LED_ON;
-        led_effect_on = 0;
-        led_level = 1;
-        led_color = LED_COLOR_WHITE;
-        led_dutyCycleNow = (led_dutyCycleMax * led_level) / 5;
-        LCD_EnsureOn();
-        LCD_BackLightCmd(ENABLE);
-        TIM2_SetDutyColor(led_dutyCycleNow, led_color);
-        LCD_ShowBatLev((led_level * 2), ENABLE);
-        LCD_ShowBatPrc(led_level, DISABLE);
+        if (led_status == LED_OFF)
+        {
+          led_status = LED_ON;
+          led_effect_on = 0;
+          led_level = 1;
+          led_color = LED_COLOR_WHITE;
+          led_dutyCycleNow = (led_dutyCycleMax * led_level) / 5;
+          LCD_EnsureOn();
+          LCD_BackLightCmd(ENABLE);
+          TIM2_SetDutyColor(led_dutyCycleNow, led_color);
+          LCD_ShowBatLev((led_level * 2), ENABLE);
+          LCD_ShowBatPrc(led_level, DISABLE);
+        }
+      }
+    }
+    else
+    {
+      if (setting_wait_release)
+        return;
+      if (press_ms >= 2000 && !hold2s_done)
+      {
+        hold2s_done = 1;
+        hold_consumed = 1;
+        auto_sleep_timeout_ms = setting_options_ms[setting_option_idx];
+        setting_mode = 0;
+        sys_stick = 0;
+        LCD_ShowBatteryInfo();
       }
     }
   }
@@ -411,8 +444,17 @@ static void LCD_EnsureOn(void)
   }
 }
 
+static void UpdateMeasurements(void)
+{
+  bat_volt = (MeansureBatVolt() + MeansureBatVolt() + MeansureBatVolt() + MeansureBatVolt()) / 4;
+  led_dutyCycleMax = (bat_volt > 12) ? (uint16_t)((12000.0f / bat_volt) * 1000.0f) : 1000;
+  tempe = MeansureTempe();
+  remain_battery = pro_remain_bat(bat_volt);
+}
+
 static void LCD_ShowBatteryInfo(void)
 {
+  UpdateMeasurements();
   LCD_EnsureOn();
   LCD_BackLightCmd(ENABLE);
   LCD_ShowSpcItem(LCD_SPC_ITEM_CAP_STR, ENABLE);
@@ -431,13 +473,20 @@ static void LCD_ShowSettingOption(void)
 
   LCD_EnsureOn();
   LCD_BackLightCmd(ENABLE);
-  LCD_ShowSpcItem(LCD_SPC_ITEM_CAP_STR, ENABLE);
-  LCD_ShowBatLev(0, DISABLE);
+  LCD_ShowSpcItem(LCD_SPC_ITEM_CAP_STR, DISABLE);
+  LCD_Clear();
+  // LCD_ShwBatVol(bat_volt / 100);
+  // LCD_ShowBatLev(0, DISABLE);
   LCD_ShowBatPrc(option_seconds, DISABLE);
 }
 
 static void LED_ApplyBrightness(void)
 {
+  if (lcd_status == LCD_OFF)
+  {
+    LCD_ShowBatteryInfo();
+    return;
+  }
   led_level = (led_level < 5) ? (led_level + 1) : 1;
   led_dutyCycleNow = (led_dutyCycleMax * led_level) / 5;
   LCD_EnsureOn();

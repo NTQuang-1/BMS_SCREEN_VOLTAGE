@@ -39,7 +39,6 @@ This is the firmware for the LCD screen controller. The interface is simple: tap
 5. **Press and hold for more than 10s** to enter the **setting mode** for 3s, 4s, or 8s operation:
    - **Tap the button** to cycle through the options: 3s2v7, 4s3v2(main), or 8s3v2.
    - **Press and hold for 2s** to confirm and run the selected mode.
-6. Brightness adjustments are done by **tapping** the button.
 
 ## Contact
 
