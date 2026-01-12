@@ -77,8 +77,10 @@ void TIM2_INIT(void)
   TIM_OCInitStructure.TIM_Pulse = 0;
   TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
   TIM_OC3Init(TIM2, &TIM_OCInitStructure);
+  TIM_OC4Init(TIM2, &TIM_OCInitStructure);
 
   TIM_OC3PreloadConfig(TIM2, TIM_OCPreload_Enable);
+  TIM_OC4PreloadConfig(TIM2, TIM_OCPreload_Enable);
   TIM2->CTLR1 |= TIM_ARPE; // Auto-reload preload enable
 
   /* Start timer */

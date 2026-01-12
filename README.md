@@ -21,9 +21,9 @@ This is the firmware for the LCD screen controller. The interface is simple: tap
   - Brightness has **5 levels** (1–5)
   - Each level lights up **2 bars** and displays numbers **1–5**, representing battery percentage
   - **Voltage** and **temperature** display remain unchanged
-  - **Press and hold 3s:** turn off the led
+  - **Double-tap in LED ON/EFFECT mode** turn off the led
   - **Press and hold 5s:** Turn on the LED flashing effect
-  - **Press and hold for more than 10s:** Enter the setting mode for 3s, 4s, or 8s operation.
+  - **Press and hold for more than 10s** Enter the setting mode for 3s, 4s, or 8s operation.
   - In setting mode:
     - **Press and hold for 2s** to confirm and run the selected mode.
     - **Tap the button** to cycle through the options: 3s, 4s, or 8s.
@@ -32,12 +32,12 @@ This is the firmware for the LCD screen controller. The interface is simple: tap
 
 1. **Tap** the button to toggle and view the battery percentage. ✓
 2. **Press and hold for 3s** to turn on the **white LED** first, then tap to increase or decrease brightness. ✓
-    2.1. **Press and hold for 1s** to switch to the **yellow LED**.
-    2.2. **Press and hold for 1s** again to turn on **both LEDs**.
-3. **Press and hold for 3s** to turn off the LED. ✓
+    2.1. **Press and hold for 1s** to switch to the **yellow LED**. ✓
+    2.2. **Press and hold for 1s** again to turn on **both LEDs**. ✓
+3. **Double-tap in LED ON/EFFECT mode** to turn off the LED. ✓
 4. **Press and hold for 5s** to turn on the LED flashing effect. ✓
 5. **Press and hold for more than 10s** to enter the **setting mode** for 3s, 4s, or 8s operation:
-   - **Tap the button** to cycle through the options: 3s, 4s, or 8s.
+   - **Tap the button** to cycle through the options: 3s2v7, 4s3v2(main), or 8s3v2.
    - **Press and hold for 2s** to confirm and run the selected mode.
 6. Brightness adjustments are done by **tapping** the button.
 
